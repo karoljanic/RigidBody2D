@@ -13,9 +13,13 @@
 class Circle : public Shape
 {
 public:
-    Circle(float r)
+    float radius;
+
+    // costructor
+    // _radius - length of radius of creating circle 
+    Circle(float _radius)
     {
-        radius = r;
+        radius = _radius;
     }
 
     Shape* Copy() const
@@ -26,9 +30,9 @@ public:
     void Calculate(float density)
     {
         body->mass = PI * radius * radius * density;
-        body->inverseMass = 1.0f / body->mass;
-        body->inertialMoment = 0.5f * body->mass * radius * radius;
-        body->inverseInertialMoment = 1.0f / body->inertialMoment;
+        body->inverseMass = 1.0 / body->mass;
+        body->inertialMoment = 0.5 * body->mass * radius * radius;
+        body->inverseInertialMoment = 1.0 / body->inertialMoment;
     }
 
     void SetOrientation(float radians)
@@ -38,17 +42,19 @@ public:
 
     void Draw() const
     {
-        glColor3f(body->bodyColor.r, body->bodyColor.g, body->bodyColor.b);
-        glBegin(GL_LINE_LOOP);
+        glColor3f(body->bodyColor.red, body->bodyColor.green, body->bodyColor.blue);
+        glBegin(GL_POLYGON);
         float theta = body->orientation;
-        float angle = PI * 2.0f / (float)circlePoints;
+        float angle = PI * 2.0 / (float)circlePoints;
+        Vector2D point;
         for (int i = 0; i < circlePoints; i++)
         {
             theta += angle;
-            Vector2D p(std::cos(theta), std::sin(theta));
-            p *= radius;
-            p += body->position;
-            glVertex2f(p.x, p.y);
+            point.x = std::cos(theta);
+            point.y = std::sin(theta);
+            point *= radius;
+            point += body->position;
+            glVertex2f(point.x, point.y);
         }
         glEnd();
     }

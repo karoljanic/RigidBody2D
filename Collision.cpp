@@ -4,13 +4,16 @@
 
 #include "IncludesManager.h"
 
+const float K_BIAS_RELATIVE = 0.95f;
+const float K_BIAS_ABSOLUTE = 0.01f;
+
 void CircleToCircle(ContactPoint* point, RigidBody* bodyA, RigidBody* bodyB)
 {
     Circle* A = (Circle*)(bodyA->shape);
     Circle* B = (Circle*)(bodyB->shape);
 
     Vector2D normal = bodyB->position - bodyA->position;
-    float distancePower2 = normal.LengthPower2();
+    float distancePower2 = normal.lengthPower2();
     float radius = A->radius + B->radius;
 
     if (distancePower2 >= radius * radius)
@@ -44,13 +47,13 @@ void CircleToPolygon(ContactPoint* point, RigidBody* bodyA, RigidBody* bodyB)
     point->contact_count = 0;
 
     Vector2D center = bodyA->position;
-    center = B->orient.Transpose() * (center - bodyB->position);
+    center = B->orientation.transpose() * (center - bodyB->position);
 
     float separation = -FLT_MAX;
     int faceNormal = 0;
-    for (int i = 0; i < B->vrtxCount; i++)
+    for (int i = 0; i < B->verticesCount; i++)
     {
-        float s = Dot(B->nrmls[i], center - B->vrtcsArray[i]);
+        float s = dot(B->normalVectors[i], center - B->verticesArray[i]);
         if (s > A->radius)
             return;
 
@@ -61,58 +64,58 @@ void CircleToPolygon(ContactPoint* point, RigidBody* bodyA, RigidBody* bodyB)
         }
     }
 
-    Vector2D vector1 = B->vrtcsArray[faceNormal];
-    int j = faceNormal + 1 < B->vrtxCount ? faceNormal + 1 : 0;
-    Vector2D vector2 = B->vrtcsArray[j];
+    Vector2D vector1 = B->verticesArray[faceNormal];
+    int j = faceNormal + 1 < B->verticesCount ? faceNormal + 1 : 0;
+    Vector2D vector2 = B->verticesArray[j];
 
     if (separation < EPSILON)
     {
         point->contact_count = 1;
-        point->normal = -(B->orient * B->nrmls[faceNormal]);
+        point->normal = -(B->orientation * B->normalVectors[faceNormal]);
         point->contacts[0] = point->normal * A->radius + bodyA->position;
         point->penetration = A->radius;
         return;
     }
 
-    float dot1 = Dot(center - vector1, vector2 - vector1);
-    float dot2 = Dot(center - vector2, vector1 - vector2);
+    float dot1 = dot(center - vector1, vector2 - vector1);
+    float dot2 = dot(center - vector2, vector1 - vector2);
     point->penetration = A->radius - separation;
 
     if (dot1 <= 0.0f)
     {
         Vector2D vctr1 = center - vector1;
-        if (Dot(vctr1, vctr1) > A->radius * A->radius)
+        if (dot(vctr1, vctr1) > A->radius * A->radius)
             return;
 
         point->contact_count = 1;
         Vector2D n = vector1 - center;
-        n = B->orient * n;
-        n.Normalize();
+        n = B->orientation * n;
+        n.normalize();
         point->normal = n;
-        vector1 = B->orient * vector1 + bodyB->position;
+        vector1 = B->orientation * vector1 + bodyB->position;
         point->contacts[0] = vector1;
     }
     else if (dot2 <= 0.0f)
     {
         Vector2D vctr2 = center - vector2;
-        if (Dot(vctr2, vctr2) > A->radius * A->radius)
+        if (dot(vctr2, vctr2) > A->radius * A->radius)
             return;
 
         point->contact_count = 1;
         Vector2D vector3 = vector2 - center;
-        vector2 = B->orient * vector2 + bodyB->position;
+        vector2 = B->orientation * vector2 + bodyB->position;
         point->contacts[0] = vector2;
-        vector3 = B->orient * vector3;
-        vector3.Normalize();
+        vector3 = B->orientation * vector3;
+        vector3.normalize();
         point->normal = vector3;
     }
     else
     {
-        Vector2D n = B->nrmls[faceNormal];
-        if (Dot(center - vector1, n) > A->radius)
+        Vector2D n = B->normalVectors[faceNormal];
+        if (dot(center - vector1, n) > A->radius)
             return;
 
-        n = B->orient * n;
+        n = B->orientation * n;
         point->normal = -n;
         point->contacts[0] = point->normal * A->radius + bodyA->position;
         point->contact_count = 1;
@@ -130,22 +133,22 @@ float FindAxisLeastPenetration(int* faceIndex, Poly* polyA, Poly* polyB)
     float bestDistance = -FLT_MAX;
     int bestIndex=0;
 
-    for (int i = 0; i < polyA->vrtxCount; i++)
+    for (int i = 0; i < polyA->verticesCount; i++)
     {
-        Vector2D n = polyA->nrmls[i];
-        Vector2D nw = polyA->orient * n;
+        Vector2D n = polyA->normalVectors[i];
+        Vector2D nw = polyA->orientation * n;
 
-        Matrix2X2 buT = polyB->orient.Transpose();
+        Matrix2X2 buT = polyB->orientation.transpose();
         n = buT * nw;
 
         Vector2D s = polyB->GetExtreme(-n);
 
-        Vector2D v = polyA->vrtcsArray[i];
-        v = polyA->orient * v + polyA->body->position;
+        Vector2D v = polyA->verticesArray[i];
+        v = polyA->orientation * v + polyA->body->position;
         v -= polyB->body->position;
         v = buT * v;
 
-        float d = Dot(n, s - v);
+        float d = dot(n, s - v);
 
         if (d > bestDistance)
         {
@@ -160,26 +163,26 @@ float FindAxisLeastPenetration(int* faceIndex, Poly* polyA, Poly* polyB)
 
 void FindIncidentFace(Vector2D* vector, Poly* RefPoly, Poly* IncPoly, int referenceIndex)
 {
-    Vector2D referenceNormal = RefPoly->nrmls[referenceIndex];
+    Vector2D referenceNormal = RefPoly->normalVectors[referenceIndex];
 
-    referenceNormal = RefPoly->orient * referenceNormal; 
-    referenceNormal = IncPoly->orient.Transpose() * referenceNormal; 
+    referenceNormal = RefPoly->orientation * referenceNormal;
+    referenceNormal = IncPoly->orientation.transpose() * referenceNormal;
 
     int incidentFace = 0;
     float minDot = FLT_MAX;
-    for (int i = 0; i < IncPoly->vrtxCount; i++)
+    for (int i = 0; i < IncPoly->verticesCount; i++)
     {
-        float dot = Dot(referenceNormal, IncPoly->nrmls[i]);
-        if (dot < minDot)
+        float dot1 = dot(referenceNormal, IncPoly->normalVectors[i]);
+        if (dot1 < minDot)
         {
-            minDot = dot;
+            minDot = dot1;
             incidentFace = i;
         }
     }
 
-    vector[0] = IncPoly->orient * IncPoly->vrtcsArray[incidentFace] + IncPoly->body->position;
-    incidentFace = incidentFace + 1 >= (int)IncPoly->vrtxCount ? 0 : incidentFace + 1;
-    vector[1] = IncPoly->orient * IncPoly->vrtcsArray[incidentFace] + IncPoly->body->position;
+    vector[0] = IncPoly->orientation * IncPoly->verticesArray[incidentFace] + IncPoly->body->position;
+    incidentFace = incidentFace + 1 >= (int)IncPoly->verticesCount ? 0 : incidentFace + 1;
+    vector[1] = IncPoly->orientation * IncPoly->verticesArray[incidentFace] + IncPoly->body->position;
 }
 
 int Clip(Vector2D normalVector, float c, Vector2D* face)
@@ -190,8 +193,8 @@ int Clip(Vector2D normalVector, float c, Vector2D* face)
       face[1]
     };
 
-    float d1 = Dot(normalVector, face[0]) - c;
-    float d2 = Dot(normalVector, face[1]) - c;
+    float d1 = dot(normalVector, face[0]) - c;
+    float d2 = dot(normalVector, face[1]) - c;
 
     if (d1 <= 0.0f) out[sp++] = face[0];
     if (d2 <= 0.0f) out[sp++] = face[1];
@@ -231,7 +234,11 @@ void PolygonToPolygon(ContactPoint* point, RigidBody* bodyA, RigidBody* bodyB)
     Poly* RefPoly; 
     Poly* IncPoly; 
 
-    if (BiasGreaterThan(penetrationA, penetrationB))
+    const float k_biasRelative = 0.95f;
+    const float k_biasAbsolute = 0.01f;
+    //return a >= b * k_biasRelative + a * k_biasAbsolute;
+    //if (biasGreaterThan(penetrationA, penetrationB))
+    if (penetrationA >= penetrationB * K_BIAS_RELATIVE + penetrationA * K_BIAS_ABSOLUTE)
     {
         RefPoly = A;
         IncPoly = B;
@@ -249,21 +256,21 @@ void PolygonToPolygon(ContactPoint* point, RigidBody* bodyA, RigidBody* bodyB)
     Vector2D incidentFace[2];
     FindIncidentFace(incidentFace, RefPoly, IncPoly, referenceIndex);
 
-    Vector2D v1 = RefPoly->vrtcsArray[referenceIndex];
-    referenceIndex = referenceIndex + 1 == RefPoly->vrtxCount ? 0 : referenceIndex + 1;
-    Vector2D v2 = RefPoly->vrtcsArray[referenceIndex];
+    Vector2D v1 = RefPoly->verticesArray[referenceIndex];
+    referenceIndex = referenceIndex + 1 == RefPoly->verticesCount ? 0 : referenceIndex + 1;
+    Vector2D v2 = RefPoly->verticesArray[referenceIndex];
 
-    v1 = RefPoly->orient * v1 + RefPoly->body->position;
-    v2 = RefPoly->orient * v2 + RefPoly->body->position;
+    v1 = RefPoly->orientation * v1 + RefPoly->body->position;
+    v2 = RefPoly->orientation * v2 + RefPoly->body->position;
 
     Vector2D sidePlaneNormal = (v2 - v1);
-    sidePlaneNormal.Normalize();
+    sidePlaneNormal.normalize();
 
     Vector2D refFaceNormal(sidePlaneNormal.y, -sidePlaneNormal.x);
 
-    float refC = Dot(refFaceNormal, v1);
-    float negSide = -Dot(sidePlaneNormal, v1);
-    float posSide = Dot(sidePlaneNormal, v2);
+    float refC = dot(refFaceNormal, v1);
+    float negSide = -dot(sidePlaneNormal, v1);
+    float posSide = dot(sidePlaneNormal, v2);
 
     if (Clip(-sidePlaneNormal, negSide, incidentFace) < 2)
         return; 
@@ -274,7 +281,7 @@ void PolygonToPolygon(ContactPoint* point, RigidBody* bodyA, RigidBody* bodyB)
     point->normal = flip ? -refFaceNormal : refFaceNormal;
 
     int cp = 0; 
-    float separation = Dot(refFaceNormal, incidentFace[0]) - refC;
+    float separation = dot(refFaceNormal, incidentFace[0]) - refC;
     if (separation <= 0.0f)
     {
         point->contacts[cp] = incidentFace[0];
@@ -286,7 +293,7 @@ void PolygonToPolygon(ContactPoint* point, RigidBody* bodyA, RigidBody* bodyB)
         point->penetration = 0;
     }
 
-    separation = Dot(refFaceNormal, incidentFace[1]) - refC;
+    separation = dot(refFaceNormal, incidentFace[1]) - refC;
     if (separation <= 0.0f)
     {
         point->contacts[cp] = incidentFace[1];

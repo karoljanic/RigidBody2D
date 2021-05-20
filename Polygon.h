@@ -5,36 +5,39 @@
 #ifndef POLYGON_H
 #define POLYGON_H
 
-// max number of vertices in polygin model
+// max number of vertices in polygon model
 #define MaxPolyVertexCount 128
 
 
-// Poly class - unique shape = polygon
+// Poly class - unique shape 
 class Poly : public Shape
 {
 public:
-    int vrtxCount;
-    Vector2D vrtcsArray[MaxPolyVertexCount];
-    Vector2D nrmls[MaxPolyVertexCount];
+    Matrix2X2 orientation;
+    int verticesCount;
+    Vector2D verticesArray[MaxPolyVertexCount];
+    Vector2D normalVectors[MaxPolyVertexCount];
 
     // virtual constructor
     Poly() {}
 
+    // costructor
     // _vertices - poiter to vector 2d array with subsequent vertices 
     // _count - number of vertices; must be between 3 and MaxPolyVertexCount
     Poly(Vector2D* _vertices, int _count)
     {
+        // finding tha most right point of polygon
         int theMostRight = 0;
-        float theMostTop = _vertices[0].x;
+        float currentValue = _vertices[0].x;
         for (int i = 1; i < _count; i++)
         {
             float x = _vertices[i].x;
-            if (x > theMostTop)
+            if (x > currentValue)
             {
-                theMostTop = x;
+                currentValue = x;
                 theMostRight = i;
             }
-            else if (x == theMostTop && (_vertices[i].y < _vertices[theMostRight].y))
+            else if (x == currentValue && (_vertices[i].y < _vertices[theMostRight].y))
             {
                 theMostRight = i;
             }
@@ -42,13 +45,12 @@ public:
 
         int vrtx[MaxPolyVertexCount];
         int vrtxIndex = theMostRight;
-        int cnt = 0;
+        int k = 0;
 
+        // sorting vertices by angle (counterclockwise)
         while (true)
         {
-            vrtx[cnt] = vrtxIndex;
-
-            // finding the first one on the left
+            vrtx[k] = vrtxIndex;
             int nextVrtxIndex = 0;
             for (int i = 1; i < _count; i++)
             {
@@ -58,103 +60,119 @@ public:
                     continue;
                 }
 
-                Vector2D pnt1 = _vertices[nextVrtxIndex] - _vertices[vrtx[cnt]];
-                Vector2D pnt2 = _vertices[i] - _vertices[vrtx[cnt]];
-                float res = Cross(pnt1, pnt2);
+                Vector2D point1 = _vertices[nextVrtxIndex] - _vertices[vrtx[k]];
+                Vector2D point2 = _vertices[i] - _vertices[vrtx[k]];
+                float res = cross(point1, point2);
                 if (res < 0.0f)
                     nextVrtxIndex = i;
 
-                if (res == 0.0f && pnt2.LengthPower2() > pnt1.LengthPower2())
+                if (res == 0.0f && point2.lengthPower2() > point1.lengthPower2())
                     nextVrtxIndex = i;
             }
 
-            cnt++;
+            k++;
             vrtxIndex = nextVrtxIndex;
 
             if (nextVrtxIndex == theMostRight)
             {
-                vrtxCount = cnt;
+                verticesCount = k;
                 break;
             }
         }
 
-        for (int i = 0; i < vrtxCount; i++)
-            vrtcsArray[i] = _vertices[vrtx[i]];
+        for (int i = 0; i < verticesCount; i++)
+            verticesArray[i] = _vertices[vrtx[i]];
 
         // calculate face normal vectors
-        for (int i1 = 0; i1 < vrtxCount; i1++)
-        {
-            int i2 = i1 + 1 < vrtxCount ? i1 + 1 : 0;
-            Vector2D face = vrtcsArray[i2] - vrtcsArray[i1];
+        int j;
+        for (int i = 0; i < verticesCount; i++)
+        {   
+            j = (i + 1)% verticesCount;
+  
+            // vector AB = [B_x - A_x, B_y - A_y]
+            Vector2D face = verticesArray[j] - verticesArray[i];
 
-            assert(face.LengthPower2() > EPSILON * EPSILON);
-
-            nrmls[i1] = Vector2D(face.y, -face.x);
-            nrmls[i1].Normalize();
+            // if the side length is close to zero, the result of the normal vector is unphysical 
+            assert(face.lengthPower2() > EPSILON * EPSILON);
+            
+            // vector A1x + B1y + C1 is perpendicular to A2x + B2x + C2 <=> A1 * A2 + B1 * B2 == 0, so
+            normalVectors[i] = Vector2D(face.y, -face.x);
+            // the normal vector must be normalised 
+            normalVectors[i].normalize();
         }
     }
 
     Shape* Copy() const
     {
-        int len = vrtxCount;
-        Vector2D* vrtcs = new Vector2D[len];
-        for (int i = 0; i < len; i++)
-            vrtcs[i] = vrtcsArray[i];
+        Vector2D* vertices = new Vector2D[verticesCount];
+        for (int i = 0; i < verticesCount; i++)
+            vertices[i] = verticesArray[i];
             
         Poly* poly = new Poly();
-        poly->orient = orient;
-        for (int i = 0; i < vrtxCount; i++)
+        poly->orientation = orientation;
+        for (int i = 0; i < verticesCount; i++)
         {
-            poly->vrtcsArray[i] = vrtcsArray[i];
-            poly->nrmls[i] = nrmls[i];
+            poly->verticesArray[i] = verticesArray[i];
+            poly->normalVectors[i] = normalVectors[i];
         }
-        poly->vrtxCount = vrtxCount;
+        poly->verticesCount = verticesCount;
         return poly;
     }
 
     void Calculate(float density)
     {
-        Vector2D centroid(0.0f, 0.0f); // centroid is a geometric centre of the polygon
-        float area = 0.0f;
-        float inertial = 0.0f;
+        float area = 0.0;
+        float inertialMoment = 0.0;
 
-        for (int i1 = 0; i1 < vrtxCount; i1++)
-        {   
-            Vector2D p1(vrtcsArray[i1]);
-            int i2 = i1 + 1 < vrtxCount ? i1 + 1 : 0;
-            Vector2D p2(nrmls[i2]);
-
-            float vectorsCross = Cross(p1, p2);
-            float triangleArea = 0.5f * vectorsCross;
-
-            area += triangleArea;
-            centroid += triangleArea * 0.333f * (p1 + p2);
-
-            float intx2 = p1.x * p1.x + p2.x * p1.x + p2.x * p2.x;
-            float inty2 = p1.y * p1.y + p2.y * p1.y + p2.y * p2.y;
-            inertial += (0.0833f * vectorsCross) * (intx2 + inty2);
+        // area = 1/2 * | (x1*y2 - y1*x2) + (x2*y3 - y2*x3) + ... + (xn*y1 - yn*x1) |
+        for (int i = 0; i < verticesCount; i++)
+        {
+            area += verticesArray[i].x * verticesArray[i + 1].y;
+            area -= verticesArray[i].y * verticesArray[i + 1].x;
         }
+        area += verticesArray[verticesCount - 1].x * verticesArray[0].y;
+        area -= verticesArray[verticesCount - 1].y * verticesArray[0].x;
+        area = 0.5 * abs(area);
 
-        centroid *= 1.0f / area;
- 
         body->mass = density * area;
-        body->inverseMass = (body->mass) ? 1.0f / body->mass : 0.0f;
-        body->inertialMoment = inertial * density;
-        body->inverseInertialMoment = body->inertialMoment ? 1.0f / body->inertialMoment : 0.0f;
+        if (body->mass == 0)
+            body->inverseMass = 0;
+        else
+            body->inverseMass = 1.0 / body->mass;
+
+
+        // moment of inertia = 1/12 * sum(from k=0 to k = n-1)[( xk*y(k+1) - x(k+1)*yk )( (x(k+1))^2 + x(k+1)*xk + (xk)^2 + y(k+1))^2 + y(k+1)*yk + (yk)^2 )], if k == n then k = 0
+        for (int i = 0; i < verticesCount - 1; i++)
+        {
+            inertialMoment += (verticesArray[i].x * verticesArray[i + 1].y - verticesArray[i + 1].x * verticesArray[i].y) *
+                              (verticesArray[i + 1].x * verticesArray[i + 1].x + verticesArray[i].x * verticesArray[i + 1].x + verticesArray[i].x * verticesArray[i].x +
+                               verticesArray[i + 1].y * verticesArray[i + 1].y + verticesArray[i].y * verticesArray[i + 1].y + verticesArray[i].y * verticesArray[i].y);
+        }
+        inertialMoment += (verticesArray[verticesCount - 1].x * verticesArray[0].y - verticesArray[0].x * verticesArray[verticesCount - 1].y) *
+                          (verticesArray[0].x * verticesArray[0].x + verticesArray[verticesCount - 1].x * verticesArray[0].x + verticesArray[verticesCount - 1].x * verticesArray[verticesCount - 1].x +
+                           verticesArray[0].y * verticesArray[0].y + verticesArray[verticesCount - 1].y * verticesArray[0].y + verticesArray[verticesCount - 1].y * verticesArray[verticesCount - 1].y);
+
+        inertialMoment *= 0.0833;
+
+        body->inertialMoment = density * inertialMoment;
+        if (body->inertialMoment == 0)
+            body->inverseInertialMoment = 0;
+        else
+            body->inverseInertialMoment = 1.0 / body->inertialMoment;
     }
 
     void SetOrientation(float radians)
     {
-        orient = Matrix2X2(radians);
+        orientation = Matrix2X2(radians);
     }
 
     void Draw() const
     {
-        glColor3f(body->bodyColor.r, body->bodyColor.g, body->bodyColor.b);
-        glBegin(GL_LINE_LOOP);
-        for (int i = 0; i < vrtxCount; i++)
+        glColor3f(body->bodyColor.red, body->bodyColor.green, body->bodyColor.blue);
+        glBegin(GL_POLYGON);
+        for (int i = 0; i < verticesCount; i++)
         {
-            Vector2D v = body->position + orient * vrtcsArray[i];
+            Vector2D v = body->position + orientation * verticesArray[i];
             glVertex2f(v.x, v.y);
         }
         glEnd();
@@ -168,24 +186,24 @@ public:
     // returns extreme point in a polygon
     Vector2D GetExtreme(const Vector2D& direction)
     {
-        float bestProjection = -FLT_MAX;
+        float currentValue = -FLT_MAX;
+        Vector2D currentVertex;
         Vector2D bestVertex;
-
-        for (int i = 0; i < vrtxCount; i++)
+        float scalar;
+        for (int i = 0; i < verticesCount; i++)
         {
-            Vector2D v = vrtcsArray[i];
-            float projection = Dot(v, direction);
+            currentVertex  = verticesArray[i];
+            scalar = dot(currentVertex, direction);
 
-            if (projection > bestProjection)
+            if (scalar > currentValue)
             {
-                bestVertex = v;
-                bestProjection = projection;
+                bestVertex = currentVertex;
+                currentValue = scalar;
             }
         }
 
         return bestVertex;
     }
-
 };
 
 #endif // POLYGON_H

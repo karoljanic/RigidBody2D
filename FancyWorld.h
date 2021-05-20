@@ -21,29 +21,29 @@ void mouse(int button, int state, int x, int y)
         {
         case GLUT_LEFT_BUTTON:
         {
-            int count = (int)Random(5, MaxPolyVertexCount);
+            int count = (int)random(5, MaxPolyVertexCount);
             Vector2D* vertices = new Vector2D[count];
             for (int i = 0; i < count; i++)
             {
-                vertices[i].x = Random(-7.0, 7.0);
-                vertices[i].y = Random(-7.0, 7.0);
+                vertices[i].x = random(-7.0, 7.0);
+                vertices[i].y = random(-7.0, 7.0);
             }
 
             Poly poly(vertices, count);
             RigidBody* body = scene.Add(&poly, x, y);
-            body->SetOrientation(Random(-PI, PI));
-            body->restitution = 0.2f;
+            body->SetOrientation(random(-PI, PI));
+            body->restitution = 0.4f;
             body->kinetcFriction = 0.2f;
             body->staticFriction = 0.4f;
-            body->SetColor(Random(0, 1), Random(0, 1), Random(0, 1));
+            body->SetColor(random(0, 1), random(0, 1), random(0, 1));
             delete[] vertices;
         }
         break;
         case GLUT_RIGHT_BUTTON:
         {
-            Circle circ (Random(1.0f, 3.0f));
+            Circle circ (random(1.0f, 3.0f));
             RigidBody* body = scene.Add(&circ, x, y);
-            body->SetColor(Random(0, 1), Random(0, 1), Random(0, 1));
+            body->SetColor(random(0, 1), random(0, 1), random(0, 1));
         }
         break;
         }
@@ -69,7 +69,13 @@ void loop()
 
     clock.Start();
 
-    accumulator = Clamp(0.0f, 0.1f, accumulator);
+    //accumulator = clamp(0.0f, 0.1f, accumulator);
+
+    if (accumulator < 0.0) 
+        accumulator = 0.0;
+    if (accumulator > 0.1) 
+        accumulator = 0.1;
+
     while (accumulator >= dt)
     {
         scene.Step();

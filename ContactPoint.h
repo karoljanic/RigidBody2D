@@ -36,7 +36,10 @@ public:
         bodyA = _bodyA;
         bodyB = _bodyB;
 
-        resultantRestitution = bodyA->restitution * bodyB->restitution;
+        if (bodyA->restitution > bodyB->restitution)
+            resultantRestitution = bodyB->restitution;
+        else
+            resultantRestitution = bodyA->restitution;
         resultantStaticFriction = std::sqrt(bodyA->staticFriction * bodyB->staticFriction);
         resultantKineticFriction = std::sqrt(bodyA->kinetcFriction * bodyB->kinetcFriction);
 
@@ -45,9 +48,9 @@ public:
             Vector2D ra = contacts[i] - bodyA->position;
             Vector2D rb = contacts[i] - bodyB->position;
 
-            Vector2D rv = bodyB->velocity + Cross(bodyB->angularVelocity, rb) - bodyA->velocity - Cross(bodyA->angularVelocity, ra);
+            Vector2D rv = bodyB->velocity + cross(bodyB->angularVelocity, rb) - bodyA->velocity - cross(bodyA->angularVelocity, ra);
 
-            if (rv.LengthPower2() < (dt * gravity).LengthPower2() + EPSILON)
+            if (rv.lengthPower2() < (dt * gravity).lengthPower2() + EPSILON)
                 resultantRestitution = 0.0f;
         }
     }
@@ -74,7 +77,7 @@ public:
     // applies impulses
     void ApplyImpuls()
     {
-        if (Equal(bodyA->inverseMass + bodyB->inverseMass, 0))
+        if (equal(bodyA->inverseMass + bodyB->inverseMass, 0))
         {
             bodyA->velocity.x = 0;
             bodyA->velocity.y = 0;
@@ -88,15 +91,15 @@ public:
             Vector2D ra = contacts[i] - bodyA->position;
             Vector2D rb = contacts[i] - bodyB->position;
 
-            Vector2D rv = bodyB->velocity + Cross(bodyB->angularVelocity, rb) - bodyA->velocity - Cross(bodyA->angularVelocity, ra);
+            Vector2D rv = bodyB->velocity + cross(bodyB->angularVelocity, rb) - bodyA->velocity - cross(bodyA->angularVelocity, ra);
 
-            float contactVel = Dot(rv, normal);
+            float contactVel = dot(rv, normal);
 
             if (contactVel > 0)
                 return;
 
-            float raCrossN = Cross(ra, normal);
-            float rbCrossN = Cross(rb, normal);
+            float raCrossN = cross(ra, normal);
+            float rbCrossN = cross(rb, normal);
             float invMassSum = bodyA->inverseMass + bodyB->inverseMass + raCrossN * raCrossN * bodyA->inverseInertialMoment + rbCrossN * rbCrossN * bodyB->inverseInertialMoment;
 
             float j = -(1.0f + resultantRestitution) * contactVel;
@@ -107,16 +110,16 @@ public:
             bodyA->ApplyImpulse(-impulse, ra);
             bodyB->ApplyImpulse(impulse, rb);
 
-            rv = bodyB->velocity + Cross(bodyB->angularVelocity, rb) - bodyA->velocity - Cross(bodyA->angularVelocity, ra);
+            rv = bodyB->velocity + cross(bodyB->angularVelocity, rb) - bodyA->velocity - cross(bodyA->angularVelocity, ra);
 
-            Vector2D t = rv - (normal * Dot(rv, normal));
-            t.Normalize();
+            Vector2D t = rv - (normal * dot(rv, normal));
+            t.normalize();
 
-            float jt = -Dot(rv, t);
+            float jt = -dot(rv, t);
             jt /= invMassSum;
             jt /= (float)contact_count;
 
-            if (Equal(jt, 0.0f))
+            if (equal(jt, 0.0f))
                 return;
 
             Vector2D tangentImpulse;

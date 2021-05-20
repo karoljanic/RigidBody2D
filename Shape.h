@@ -9,7 +9,7 @@
 #include "IncludesManager.h"
 
 
-// virtual class Shape is a base for every geometric shape
+// virtual class Shape is a base for each geometric shape
 class Shape
 {
 public:
@@ -21,10 +21,7 @@ public:
         CountID,    // 2
     };
 
-    RigidBody* body;
-
-    float radius;   // only for circle
-    Matrix2X2 orient;    // only for polygon
+    RigidBody* body;   
 
     // constructor
     Shape() {}

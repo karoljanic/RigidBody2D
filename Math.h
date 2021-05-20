@@ -11,25 +11,16 @@
 #include <cassert> 
 
 // math constants define
-const float PI = 3.141592741f;
-const float EPSILON = 0.0001f;
+const float PI = 3.141592741;
+const float EPSILON = 0.0001;
 
 
 // Vector2D math class
 class Vector2D
 {
 public:
-    union
-    {
-        float m[1][1];
-        float v[2];
-
-        struct
-        {
-            float x;
-            float y;
-        };
-    };
+    float x;
+    float y;
 
     // constructor v1
     Vector2D()
@@ -49,35 +40,10 @@ public:
         return Vector2D(-x, -y);
     }
 
-    // scalar multiply operator
-    Vector2D operator*(float s) const
-    {
-        return Vector2D(x * s, y * s);
-    }
-
-    // scalar division operator
-    Vector2D operator/(float s) const
-    {
-        return Vector2D(x / s, y / s);
-    }
-
-    // shortened scalar multiply operator 
-    void operator*=(float s)
-    {
-        x *= s;
-        y *= s;
-    }
-
-    // multiplication operator
+    // addition operator
     Vector2D operator+(const Vector2D& vector2) const
     {
         return Vector2D(x + vector2.x, y + vector2.y);
-    }
-
-    // scalar multiplication operator
-    Vector2D operator+(float s) const 
-    {
-        return Vector2D(x + s, y + s);
     }
 
     // shortened addition operator
@@ -94,55 +60,90 @@ public:
     }
 
     // shortened substraction operator
-    void operator-=(const Vector2D& rhs)
+    void operator-=(const Vector2D& vector2)
     {
-        x -= rhs.x;
-        y -= rhs.y;
+        x -= vector2.x;
+        y -= vector2.y;
+    }
+
+    // scalar multiplication operator
+    Vector2D operator*(float scalar) const
+    {
+        return Vector2D(x * scalar, y * scalar);
+    }
+
+    // shortened scalar multiply operator 
+    void operator*=(float scalar)
+    {
+        x *= scalar;
+        y *= scalar;
+    }
+
+    // scalar multiplication operator ( vector1 dot vector2 )
+    Vector2D operator*(const Vector2D& vector2) const
+    {
+        return Vector2D(x + vector2.x, y + vector2.y);
+    }
+
+    // scalar multiplication operator ( vector1 dot vector2 )
+    Vector2D operator*=(const Vector2D& vector2) const
+    {
+        return Vector2D(x + vector2.x, y + vector2.y);
+    }
+
+    // scalar division operator
+    Vector2D operator/(float scalar) const
+    {
+        return Vector2D(x / scalar, y / scalar);
+    }
+
+    // shortened scalar division operator
+    void operator/=(float scalar)
+    {
+        x /= scalar;
+        y /= scalar;
     }
 
     // returns (vector length)^2
-    float LengthPower2() const
+    float lengthPower2() const
     {
         return x * x + y * y;
     }
 
     // returns vector length
-    float Length() const
+    float length() const
     {
         return std::sqrt(x * x + y * y);
     }
 
     // vector rotate operation by angle
-    void Rotate(float angle)
+    void rotate(float angle)
     {
-        float c = std::cos(angle);
-        float s = std::sin(angle);
+        float cosinus = std::cos(angle);
+        float sinus = std::sin(angle);
 
-        float xp = x * c - y * s;
-        float yp = x * s + y * c;
-
-        x = xp;
-        y = yp;
+        x = x * cosinus - y * sinus;
+        y = x * sinus + y * cosinus;
     }
 
     // vector normalisation
-    void Normalize()
+    void normalize()
     {
-        float len = Length();
+        float len = length();
 
         if (len > EPSILON)
         {
-            float invLen = 1.0f / len;
-            x *= invLen;
-            y *= invLen;
+            float inverseLen = 1.0 / len;
+            x *= inverseLen;
+            y *= inverseLen;
         }
     }
 };
 
 // reversed scalar multiplication operator 
-inline Vector2D operator*(float s, const Vector2D& vector)
+inline Vector2D operator*(float scalar, const Vector2D& vector)
 {
-    return Vector2D(s * vector.x, s * vector.y);
+    return Vector2D(scalar * vector.x, scalar * vector.y);
 }
 
 
@@ -150,130 +151,105 @@ inline Vector2D operator*(float s, const Vector2D& vector)
 class Matrix2X2
 {
 public:
-    union
-    {
-        struct
-        {
-            float m00, m01;
-            float m10, m11;
-        };
-
-        float m[2][2];
-        float v[4];
-    };
-
+    float matrix[2][2];
+  
     // constructor v1
     Matrix2X2()
     {
     }
 
     // constructor v2
-    Matrix2X2(float a, float b, float c, float d)
+    //   | 00 | 01 |
+    //   | 10 | 11 |
+    Matrix2X2(float matrix00, float matrix01, float matrix10, float matrix11)
     {
-        m00 = a;
-        m01 = b;
-        m10 = c;
-        m11 = d;
+        matrix[0][0] = matrix00;
+        matrix[0][1] = matrix01;
+        matrix[1][0] = matrix10;
+        matrix[1][1] = matrix11;
     }
 
     // constructor v3 - rotation matrix 
     Matrix2X2(float radians)
     {
-        float c = std::cos(radians);
-        float s = std::sin(radians);
+        float cosinus = std::cos(radians);
+        float sinus = std::sin(radians);
 
-        m00 = c; m01 = -s;
-        m10 = s; m11 = c;
+        matrix[0][0] = cosinus;
+        matrix[0][1] = -sinus;
+        matrix[1][0] = sinus;
+        matrix[1][1] = cosinus;
     }
 
     // return Matrix2x2 with absolute values
-    Matrix2X2 Abs() const
+    Matrix2X2 abs() const
     {
-        return Matrix2X2(std::abs(m00), std::abs(m01), std::abs(m10), std::abs(m11));
+        return Matrix2X2(std::abs(matrix[0][0]), std::abs(matrix[0][1]), 
+                         std::abs(matrix[1][0]), std::abs(matrix[1][1]));
     }
 
     // returns the transposed matrix
-    Matrix2X2 Transpose() const
+    Matrix2X2 transpose() const
     {
-        return Matrix2X2(m00, m10, m01, m11);
+        return Matrix2X2(matrix[0][0], matrix[1][0],
+                         matrix[0][1], matrix[1][1]);
     }
 
-    // multiplication operation: matrix2X2 * vector2D
+    // multiplication operation: vector2D * matrix2X2
     const Vector2D operator*(const Vector2D& vector) const
     {
-        return Vector2D(m00 * vector.x + m01 * vector.y, m10 * vector.x + m11 * vector.y);
+        return Vector2D(matrix[0][0] * vector.x + matrix[0][1] * vector.y, 
+                        matrix[1][0] * vector.x + matrix[1][1] * vector.y);
     }
 
     // multiplication operation: matrix2X2 * matrix2X2
     const Matrix2X2 operator*(const Matrix2X2& matrix2) const
     {
         return Matrix2X2(
-            m[0][0] * matrix2.m[0][0] + m[0][1] * matrix2.m[1][0],
-            m[0][0] * matrix2.m[0][1] + m[0][1] * matrix2.m[1][1],
-            m[1][0] * matrix2.m[0][0] + m[1][1] * matrix2.m[1][0],
-            m[1][0] * matrix2.m[0][1] + m[1][1] * matrix2.m[1][1] );
+            matrix[0][0] * matrix2.matrix[0][0] + matrix[0][1] * matrix2.matrix[1][0],
+            matrix[0][0] * matrix2.matrix[0][1] + matrix[0][1] * matrix2.matrix[1][1],
+            matrix[1][0] * matrix2.matrix[0][0] + matrix[1][1] * matrix2.matrix[1][0],
+            matrix[1][0] * matrix2.matrix[0][1] + matrix[1][1] * matrix2.matrix[1][1] );
     }
 };
 
 // return vector1 dot vector2
-inline float Dot(const Vector2D& vector1, const Vector2D& vector2)
+inline float dot(const Vector2D& vector1, const Vector2D& vector2)
 {
     return vector1.x * vector2.x + vector1.y * vector2.y;
 }
 
 // returns vector cross a
-inline Vector2D Cross(const Vector2D& vector, float a)
+inline Vector2D cross(const Vector2D& vector, float a)
 {
     return Vector2D(a * vector.y, -a * vector.x);
 }
 
 // returns a cross vector
-inline Vector2D Cross(float a, const Vector2D& vector)
+inline Vector2D cross(float a, const Vector2D& vector)
 {
     return Vector2D(-a * vector.y, a * vector.x);
 }
 
 // returns vector1 cross vector2
-inline float Cross(const Vector2D& vector1, const Vector2D& vector2)
+inline float cross(const Vector2D& vector1, const Vector2D& vector2)
 {
     return vector1.x * vector2.y - vector1.y * vector2.x;
 }
 
 // returns wheter numbers are equal with EPSILON tolerance
-inline bool Equal(float number1, float number2)
+inline bool equal(float number1, float number2)
 {
     return std::abs(number1 - number2) <= EPSILON;
 }
 
-// returns number clamp
-inline float Clamp(float min, float max, float number)
-{
-    if (number < min) return min;
-    if (number > max) return max;
-    return number;
-}
-
-// return rounded number as int
-inline int Round(float number)
-{
-    return (int)(number + 0.5f);
-}
-
 // returns random number between <_min, _max>
-inline float Random(float _min, float _max)
+inline float random(float _min, float _max)
 {
     float number = (float)rand();
     number /= RAND_MAX;
     number = (_max - _min) * number + _min;
     return number;
-}
-
-// return wheter bias is grater then number
-inline bool BiasGreaterThan(float a, float b)
-{
-    const float k_biasRelative = 0.95f;
-    const float k_biasAbsolute = 0.01f;
-    return a >= b * k_biasRelative + a * k_biasAbsolute;
 }
 
 #endif // MATH_H

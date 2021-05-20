@@ -13,7 +13,7 @@ void IntegrateForce(RigidBody* body, float dt)
     if (body->inverseMass == 0.0f)
         return;
 
-    body->velocity += (body->force * body->inverseMass + gravity) * (dt / 2.0f);
+    body->velocity += (body->force * body->inverseMass + gravity) * (dt / 2.0);
     body->angularVelocity += body->torque * body->inverseInertialMoment * (dt / 2.0f);
 }
 
